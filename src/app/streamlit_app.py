@@ -24,7 +24,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 # Our own database code, kept in a separate file (improvement_dao.py).
-from dao.improvement_dao import init_db, save_results, load_history, DB_FILE
+from src.dao.improvement_dao import init_db, save_results, load_history, DB_FILE
 
 # The address of our own backend service.
 API_URL = os.getenv("ANALYSIS_API_URL", "http://127.0.0.1:8000/improve")
