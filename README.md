@@ -1,108 +1,175 @@
-# Project 1: Customer Feedback Analyzer (Gen AI)
+# GenAI Information Improvement App
 
-**The problem:** A restaurant owner has dozens of customer reviews and no time to read them all. They want a simple tool: paste the reviews, click a button, and instantly see how customers feel and what they keep complaining about.
+This project provides a simple FastAPI and Streamlit application that uses Google Gemini to improve short pieces of information.
 
-**What you will build:**
-- A **backend** (FastAPI) that uses Gemini to analyze one review.
-- A **frontend** (Streamlit dashboard) Owner actually clicks on. It sends every review to backend and shows a summary.
+The app accepts text containing 10 to 50 characters, sends it to a FastAPI backend, receives an improved response, and optionally saves the input/output pair in a SQLite database.
 
----
+## Project structure
 
-## Step 1: Set up the project
-
-```bash
-uv init 11_project_feedback_analyzer
-cd 11_project_feedback_analyzer
-uv add "fastapi[standard]" google-genai python-dotenv pydantic streamlit requests
+```text
+GenAI_App_Data_Improvement/
+├── src/
+│   ├── api/
+│   │   └── fastapi_api.py       # Gemini-backed FastAPI service
+│   ├── app/
+│   │   └── streamlit_app.py     # Streamlit user interface
+│   └── dao/
+│       └── improvement_dao.py   # SQLite create/save/load operations
+├── .env                          # Local API configuration
+├── requirements.txt
+└── Improvement.db                # Created automatically by the app
 ```
 
-Put your Gemini key in a `.env` file:
+## Features
+
+- Improve short text through Google Gemini.
+- Validate input length and blank values.
+- Call the improvement service through a local FastAPI backend.
+- Display the original and improved information in Streamlit.
+- Save successful improvements in a SQLite database.
+- View previously saved improvements.
+
+## Prerequisites
+
+- Python 3.10 or newer
+- A Google Gemini API key
+- Windows Command Prompt, PowerShell, or a VS Code terminal
+
+## Setup
+
+From the project root, create and activate a virtual environment:
+
+```powershell
+uv venv
+.venv\Scripts\Activate.ps1
 ```
-GOOGLE_API_KEY=your_key_here
+
+If PowerShell blocks activation, you can use Command Prompt activation instead:
+
+```bat
+.venv\Scripts\activate.bat
 ```
 
----
+Install the dependencies:
 
-## Step 2: The backend (`src/api/fastapi_api.py`)
-
-This is a sentiment API.
-
-The full code is in `src/api/fastapi_api.py`. The important part is the answer shape:
-
-```python
-class Analysis(BaseModel):
-    label: str   # "positive", "negative", or "neutral"
-    score: int   # 1 (very bad) to 5 (very good)
-    theme: str   # one word, e.g. "delivery"
+```powershell
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-Run the backend in its **own terminal** and leave it running:
+Create a `.env` file in the project root:
 
-```bash
+```env
+GOOGLE_API_KEY=your_google_api_key
+```
+
+Do not commit `.env` or an API key to source control.
+
+## Run the application
+
+Keep the backend and frontend in two separate terminals.
+
+### Terminal 1: Start FastAPI
+
+```powershell
+python -m fastapi dev src/api/fastapi_api.py
+```
+
+The backend runs at `http://127.0.0.1:8000`.
+
+Open `http://127.0.0.1:8000/docs` to view the Swagger interface and test the API.
+
+### Terminal 2: Start Streamlit
+
+```powershell
+python -m streamlit run src/app/streamlit_app.py
+```
+
+Streamlit will open the application in your browser, typically at `http://localhost:8501`.
+
+Other supported launch commands:
+
+```powershell
+fastapi dev src/api/fastapi_api.py
 uv run fastapi dev src/api/fastapi_api.py
-```
-
-Quick test: open **http://127.0.0.1:8000/docs**, try `/analyze` with a review, and confirm you get back a label, score, and theme.
-
----
-
-## Step 3: The frontend (`src/app/streamlit_app.py`)
-
-Open a **second terminal** (keep the backend running in the first one) and run:
-
-```bash
+streamlit run src/app/streamlit_app.py
 uv run streamlit run src/app/streamlit_app.py
 ```
 
-Paste a few reviews (one per line) and click **Analyze**. You can copy test reviews from `sample_reviews.txt`.
+## API
 
-The key idea in the frontend is this loop. For each review, we call our own backend and collect the answer:
+### `GET /`
 
-```python
-for review in reviews:
-    try:
-        response = requests.post(API_URL, json={"text": review})
-        data = response.json()
-        results.append({
-            "review": review,
-            "label": data["label"],
-            "score": data["score"],
-            "theme": data["theme"],
-        })
-    except Exception:
-        # one bad review should not stop the whole batch
-        results.append({"review": review, "label": "error", "score": 0, "theme": "error"})
+Health and welcome endpoint.
+
+Response:
+
+```json
+{
+  "message": "Welcome To Data Improvement API"
+}
 ```
 
-Then we build a small summary the owner cares about: how many reviews, the average score, the percent that are positive, and the single theme people mention most. Finally, a **Save to database** button writes every review into a SQLite table (`feedback.db`), and a **Saved history** section reads them all back.
+### `POST /improve`
 
----
+Improves one text value.
 
-## Step 4: Keep code tidy (`database.py`)
+Request:
 
-When a file gets long, we split it. All the database code (create table, save, load) lives in its own file, **`src/dao/feedback_dao.py`**. Then `streamlit_app.py` imports it at the top:
-
-```python
-from src.dao.feedback_dao import init_db, save_results, load_history, DB_FILE
+```json
+{
+  "request": "Improving data quality"
+}
 ```
 
----
+Response:
 
-## How to run the whole thing (two terminals)
+```json
+{
+  "response": "Improved text returned by Gemini"
+}
+```
 
-| Terminal 1 (backend)								|  Terminal 2 (frontend)								|
-|---------------------------------------------------|-------------------------------------------------------|
-|  fastapi dev src/api/fastapi_api.py				|  streamlit run src/app/streamlit_app.py 				|
-|  stays running									|  opens in your browser								|
+Input must contain 10 to 50 characters and cannot be blank.
 
-If the frontend shows "error" rows, the most common reason is that the backend is not running. Start it first.
+## Database
 
----
+The SQLite database is created automatically at:
 
-## Other option to run the whole thing (two terminals)
+```text
+Improvement.db
+```
 
-| Terminal 1 (backend)								|  Terminal 2 (frontend)								|
-|---------------------------------------------------|-------------------------------------------------------|
-|  python -m fastapi dev src/api/fastapi_api.py		|  python -m streamlit run src/app/streamlit_app.py 	|
-|  uv run fastapi dev src/api/fastapi_api.py		|  uv run streamlit run src/app/streamlit_app.py 		|
+The `improvement` table contains:
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | INTEGER | Primary key |
+| `input` | TEXT | Original information |
+| `output` | TEXT | Gemini-improved information |
+
+Use the **Save to database** button in Streamlit to save the current result. Saved entries appear in **Saved history**.
+
+## Configuration
+
+The backend requires:
+
+```env
+GOOGLE_API_KEY=your_google_api_key
+```
+
+The Streamlit app can also override the backend URL:
+
+```env
+ANALYSIS_API_URL=http://127.0.0.1:8000/improve
+```
+
+The default backend URL is `http://127.0.0.1:8000/improve`.
+
+## Troubleshooting
+
+- If Streamlit reports that it could not process the API response, verify that FastAPI is running on port `8000`.
+- If FastAPI returns a `503` response, verify that `GOOGLE_API_KEY` exists in `.env`.
+- If FastAPI returns a `502` response, the Gemini request or structured response failed; check the API key and service availability.
+- If no result is displayed, enter text that is at least 10 and no more than 50 characters.
 

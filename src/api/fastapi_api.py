@@ -19,7 +19,6 @@ from google.genai import types
 
 
 load_dotenv()
-client = genai.Client()
 app = FastAPI()
 
 
@@ -49,10 +48,12 @@ class Output(BaseModel):
 
 @app.post("/improve")
 def improve(input: Input) -> Output:
-    if not os.getenv("GOOGLE_API_KEY"):
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
         raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not configured.")
 
     try:
+        client = genai.Client(api_key=api_key)
         response = client.models.generate_content(
             model="gemini-3.1-flash-lite",
             contents=(

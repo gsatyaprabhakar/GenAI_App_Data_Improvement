@@ -7,7 +7,7 @@ streamlit_app.py just imports these functions and uses them.
 
 import sqlite3
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Mapping
 
 # Keep the database in the project root, regardless of the process working directory.
 DB_FILE = Path(__file__).resolve().parents[2] / "Improvement.db"
@@ -27,23 +27,21 @@ def init_db():
 
 def save_results(results: Mapping[str, object]) -> int:
     """Write all improvements into the database."""
-    if isinstance(results, Mapping):
-        results = (results,)
-
-    rows = [
-        (r["input"], r["output"])
-        for r in results
-        if r.get("output") != "error"
-    ]
-    if not rows:
+    input_text = results.get("input")
+    output_text = results.get("output")
+    if (
+        not isinstance(input_text, str)
+        or not isinstance(output_text, str)
+        or output_text == "error"
+    ):
         return 0
 
     with sqlite3.connect(DB_FILE) as conn:
         conn.executemany(
             "INSERT INTO improvement (input, output) VALUES (?, ?)",
-            rows,
+            [(input_text, output_text)],
         )
-    return len(rows)
+    return 1
 
 
 def load_history():
